@@ -6,7 +6,7 @@ import os
 USER_FILE = "users.csv"
 DATA_FILE = "data.csv"
 
-# ---------------- SAFE LOAD FUNCTIONS ---------------- #
+# ---------------- SAFE LOAD ---------------- #
 def load_users():
     if not os.path.exists(USER_FILE):
         df = pd.DataFrame(columns=["username", "password"])
@@ -14,11 +14,8 @@ def load_users():
         return df
 
     df = pd.read_csv(USER_FILE)
-
-    # Fix column names automatically
     df.columns = [col.strip().lower() for col in df.columns]
 
-    # If columns missing → reset file
     if "username" not in df.columns or "password" not in df.columns:
         df = pd.DataFrame(columns=["username", "password"])
         df.to_csv(USER_FILE, index=False)
@@ -28,28 +25,23 @@ def load_users():
 
 def load_data():
     if not os.path.exists(DATA_FILE):
-        df = pd.DataFrame(columns=["username", "sleep", "study", "screen", "caffeine", "exercise", "score"])
+        df = pd.DataFrame(columns=["username","sleep","study","screen","caffeine","exercise","score"])
         df.to_csv(DATA_FILE, index=False)
         return df
 
     df = pd.read_csv(DATA_FILE)
-
     df.columns = [col.strip().lower() for col in df.columns]
-
     return df
-
 
 # ---------------- SESSION ---------------- #
 if "page" not in st.session_state:
     st.session_state.page = "login"
-
 if "user" not in st.session_state:
     st.session_state.user = ""
 
 # ---------------- FUNCTIONS ---------------- #
 def register_user(username, password):
     df = load_users()
-
     username = username.strip()
     password = password.strip()
 
@@ -58,10 +50,9 @@ def register_user(username, password):
     if username in df["username"].values:
         return False
 
-    new_user = pd.DataFrame([[username, password]], columns=["username", "password"])
-    df = pd.concat([df, new_user], ignore_index=True)
+    new = pd.DataFrame([[username, password]], columns=["username","password"])
+    df = pd.concat([df, new], ignore_index=True)
     df.to_csv(USER_FILE, index=False)
-
     return True
 
 
@@ -71,58 +62,50 @@ def login_user(username, password):
     df["username"] = df["username"].astype(str).str.strip()
     df["password"] = df["password"].astype(str).str.strip()
 
-    username = username.strip()
-    password = password.strip()
-
-    return ((df["username"] == username) & (df["password"] == password)).any()
+    return ((df["username"] == username.strip()) &
+            (df["password"] == password.strip())).any()
 
 
-def save_data(username, sleep, study, screen, caffeine, exercise, score):
+def save_data(user, sleep, study, screen, caffeine, exercise, score):
     df = load_data()
-
-    new_data = pd.DataFrame([[username, sleep, study, screen, caffeine, exercise, score]],
-                            columns=["username", "sleep", "study", "screen", "caffeine", "exercise", "score"])
-
-    df = pd.concat([df, new_data], ignore_index=True)
+    new = pd.DataFrame([[user,sleep,study,screen,caffeine,exercise,score]],
+                       columns=df.columns)
+    df = pd.concat([df, new], ignore_index=True)
     df.to_csv(DATA_FILE, index=False)
 
-# ---------------- UI ---------------- #
+# ---------------- UI STYLE ---------------- #
 st.set_page_config(page_title="Stress Analyzer", layout="centered")
 
 st.markdown("""
 <style>
 .stApp {
-    background: linear-gradient(135deg, #0f172a, #020617);
-    color: white;
-}
-h1, h2, h3 {
-    color: #a855f7;
-}
-div.stButton > button {
-    background: linear-gradient(45deg, #9333ea, #6366f1);
-    color: white;
-    border-radius: 10px;
+    background: linear-gradient(135deg,#0f172a,#020617);
+    color:white;
 }
 .card {
-    background-color: #1e293b;
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
+    background:#1e293b;
+    padding:20px;
+    border-radius:15px;
+    text-align:center;
+}
+div.stButton > button {
+    background:linear-gradient(45deg,#9333ea,#6366f1);
+    color:white;
+    border-radius:10px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------- LOGIN ---------------- #
 if st.session_state.page == "login":
-
     st.title("Login")
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        if login_user(username, password):
-            st.session_state.user = username
+        if login_user(u,p):
+            st.session_state.user = u
             st.session_state.page = "dashboard"
             st.rerun()
         else:
@@ -134,81 +117,93 @@ if st.session_state.page == "login":
 
 # ---------------- REGISTER ---------------- #
 elif st.session_state.page == "register":
-
     st.title("Create Account")
 
-    new_user = st.text_input("New Username")
-    new_pass = st.text_input("New Password", type="password")
+    u = st.text_input("New Username")
+    p = st.text_input("New Password", type="password")
 
     if st.button("Register"):
-        if register_user(new_user, new_pass):
-            st.success("Registered Successfully! Now login.")
+        if register_user(u,p):
+            st.success("Registered! Go to login.")
         else:
-            st.error("Username already exists")
+            st.error("User exists")
 
-    if st.button("Back to Login"):
+    if st.button("Back"):
         st.session_state.page = "login"
         st.rerun()
 
 # ---------------- DASHBOARD ---------------- #
 elif st.session_state.page == "dashboard":
 
-    st.title("Student Stress Analysis System")
-    st.subheader(f"Welcome {st.session_state.user} 👋")
+    st.title("Welcome " + st.session_state.user)
 
-    st.markdown("""
-    <div style="display:flex; gap:15px;">
-        <div class="card"><h3>📊 Track Habits</h3></div>
-        <div class="card"><h3>🧠 AI Analysis</h3></div>
-        <div class="card"><h3>💡 Tips</h3></div>
-    </div>
-    """, unsafe_allow_html=True)
+    # -------- CARDS -------- #
+    col1,col2,col3 = st.columns(3)
+    with col1:
+        st.markdown("<div class='card'>📊 Track Habits<br>Monitor routine</div>",unsafe_allow_html=True)
+    with col2:
+        st.markdown("<div class='card'>💜 AI Analysis<br>Predict stress</div>",unsafe_allow_html=True)
+    with col3:
+        st.markdown("<div class='card'>✨ Improve Lifestyle<br>Get advice</div>",unsafe_allow_html=True)
 
     st.markdown("---")
 
-    sleep = st.slider("Sleep Hours", 0, 10, 6)
-    study = st.slider("Study Hours", 0, 10, 5)
-    screen = st.slider("Screen Time", 0, 10, 5)
-    caffeine = st.slider("Caffeine Intake", 0, 5, 2)
-    exercise = st.slider("Exercise (0/1)", 0, 1, 1)
+    # -------- INPUT -------- #
+    sleep = st.slider("Sleep Hours",0,10,6)
+    study = st.slider("Study Hours",0,10,5)
+    screen = st.slider("Screen Time",0,10,5)
+    caffeine = st.slider("Caffeine",0,5,2)
+    exercise = st.slider("Exercise (0/1)",0,1,1)
 
-    if st.button("Analyze Stress"):
+    # -------- ANALYSIS -------- #
+    if st.button("Analyze"):
 
-        score = ((10 - sleep) * 6) + (study * 4) + (screen * 4) + (caffeine * 5) + ((1 - exercise) * 10)
-        score = max(0, min(score, 100))
+        score = ((10-sleep)*6)+(study*4)+(screen*4)+(caffeine*5)+((1-exercise)*10)
+        score = max(0,min(score,100))
 
         if score < 30:
-            level = "Low 😊"
+            level="Low 😊"
         elif score < 70:
-            level = "Moderate 😐"
+            level="Moderate 😐"
         else:
-            level = "High 🚨"
+            level="High 🚨"
 
         st.success(f"Score: {score}")
         st.subheader(f"Stress Level: {level}")
+        st.progress(score/100)
 
-        st.progress(score / 100)
+        save_data(st.session_state.user,sleep,study,screen,caffeine,exercise,score)
 
-        save_data(st.session_state.user, sleep, study, screen, caffeine, exercise, score)
-
+        # -------- STRONG RECOMMENDATIONS -------- #
         st.subheader("💡 Recommendations")
 
+        if score > 70:
+            st.error("⚠ High stress detected! Take immediate rest & reduce workload.")
         if sleep < 6:
-            st.write("• Increase sleep")
-        if screen > 7:
-            st.write("• Reduce screen time")
+            st.warning("😴 Sleep more (7-8 hrs needed)")
+        if screen > 6:
+            st.warning("📱 Reduce screen exposure")
         if exercise == 0:
-            st.write("• Start exercise")
+            st.warning("🏃 Start physical activity")
+        if caffeine > 3:
+            st.warning("☕ Reduce caffeine intake")
+
+        if score < 30:
+            st.success("🎉 Excellent lifestyle! Keep going!")
 
     st.markdown("---")
 
-    df = load_data()
-    user_data = df[df["username"] == st.session_state.user]
+    # -------- HISTORY -------- #
+    st.subheader("📈 Stress History")
 
-    if not user_data.empty:
-        st.line_chart(user_data["score"])
+    df = load_data()
+    user_df = df[df["username"] == st.session_state.user]
+
+    if not user_df.empty:
+        st.line_chart(user_df["score"])
+        st.dataframe(user_df.tail(5))  # last 5 records
 
     if st.button("Logout"):
-        st.session_state.page = "login"
-        st.session_state.user = ""
+        st.session_state.page="login"
+        st.session_state.user=""
         st.rerun()
