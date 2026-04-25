@@ -6,12 +6,38 @@ import os
 USER_FILE = "users.csv"
 DATA_FILE = "data.csv"
 
-# ---------------- INIT ---------------- #
-if not os.path.exists(USER_FILE):
-    pd.DataFrame(columns=["username", "password"]).to_csv(USER_FILE, index=False)
+# ---------------- SAFE LOAD FUNCTIONS ---------------- #
+def load_users():
+    if not os.path.exists(USER_FILE):
+        df = pd.DataFrame(columns=["username", "password"])
+        df.to_csv(USER_FILE, index=False)
+        return df
 
-if not os.path.exists(DATA_FILE):
-    pd.DataFrame(columns=["username", "sleep", "study", "screen", "caffeine", "exercise", "score"]).to_csv(DATA_FILE, index=False)
+    df = pd.read_csv(USER_FILE)
+
+    # Fix column names automatically
+    df.columns = [col.strip().lower() for col in df.columns]
+
+    # If columns missing → reset file
+    if "username" not in df.columns or "password" not in df.columns:
+        df = pd.DataFrame(columns=["username", "password"])
+        df.to_csv(USER_FILE, index=False)
+
+    return df
+
+
+def load_data():
+    if not os.path.exists(DATA_FILE):
+        df = pd.DataFrame(columns=["username", "sleep", "study", "screen", "caffeine", "exercise", "score"])
+        df.to_csv(DATA_FILE, index=False)
+        return df
+
+    df = pd.read_csv(DATA_FILE)
+
+    df.columns = [col.strip().lower() for col in df.columns]
+
+    return df
+
 
 # ---------------- SESSION ---------------- #
 if "page" not in st.session_state:
@@ -22,7 +48,7 @@ if "user" not in st.session_state:
 
 # ---------------- FUNCTIONS ---------------- #
 def register_user(username, password):
-    df = pd.read_csv(USER_FILE)
+    df = load_users()
 
     username = username.strip()
     password = password.strip()
@@ -40,7 +66,7 @@ def register_user(username, password):
 
 
 def login_user(username, password):
-    df = pd.read_csv(USER_FILE)
+    df = load_users()
 
     df["username"] = df["username"].astype(str).str.strip()
     df["password"] = df["password"].astype(str).str.strip()
@@ -52,14 +78,13 @@ def login_user(username, password):
 
 
 def save_data(username, sleep, study, screen, caffeine, exercise, score):
-    df = pd.read_csv(DATA_FILE)
+    df = load_data()
 
     new_data = pd.DataFrame([[username, sleep, study, screen, caffeine, exercise, score]],
                             columns=["username", "sleep", "study", "screen", "caffeine", "exercise", "score"])
 
     df = pd.concat([df, new_data], ignore_index=True)
     df.to_csv(DATA_FILE, index=False)
-
 
 # ---------------- UI ---------------- #
 st.set_page_config(page_title="Stress Analyzer", layout="centered")
@@ -133,15 +158,13 @@ elif st.session_state.page == "dashboard":
 
     st.markdown("""
     <div style="display:flex; gap:15px;">
-        <div class="card"><h3>📊 Track Habits</h3><p>Monitor lifestyle</p></div>
-        <div class="card"><h3>🧠 AI Analysis</h3><p>Predict stress</p></div>
-        <div class="card"><h3>💡 Tips</h3><p>Improve health</p></div>
+        <div class="card"><h3>📊 Track Habits</h3></div>
+        <div class="card"><h3>🧠 AI Analysis</h3></div>
+        <div class="card"><h3>💡 Tips</h3></div>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("---")
-
-    st.subheader("Enter Your Daily Data")
 
     sleep = st.slider("Sleep Hours", 0, 10, 6)
     study = st.slider("Study Hours", 0, 10, 5)
@@ -154,7 +177,6 @@ elif st.session_state.page == "dashboard":
         score = ((10 - sleep) * 6) + (study * 4) + (screen * 4) + (caffeine * 5) + ((1 - exercise) * 10)
         score = max(0, min(score, 100))
 
-        # Stress Level
         if score < 30:
             level = "Low 😊"
         elif score < 70:
@@ -162,46 +184,29 @@ elif st.session_state.page == "dashboard":
         else:
             level = "High 🚨"
 
-        st.success(f"Your Stress Score: {score}")
+        st.success(f"Score: {score}")
         st.subheader(f"Stress Level: {level}")
 
         st.progress(score / 100)
 
-        # Save
         save_data(st.session_state.user, sleep, study, screen, caffeine, exercise, score)
 
-        # Recommendations
         st.subheader("💡 Recommendations")
 
         if sleep < 6:
-            st.write("• 😴 Increase sleep to 7–8 hours")
-
+            st.write("• Increase sleep")
         if screen > 7:
-            st.write("• 📱 Reduce screen time")
-
+            st.write("• Reduce screen time")
         if exercise == 0:
-            st.write("• 🏃 Start daily exercise")
-
-        if caffeine > 3:
-            st.write("• ☕ Reduce caffeine")
-
-        if study > 8:
-            st.write("• 📚 Take breaks while studying")
-
-        if score < 30:
-            st.write("• 🎉 You are doing great!")
+            st.write("• Start exercise")
 
     st.markdown("---")
 
-    st.subheader("📈 Stress Trend")
-
-    df = pd.read_csv(DATA_FILE)
+    df = load_data()
     user_data = df[df["username"] == st.session_state.user]
 
     if not user_data.empty:
         st.line_chart(user_data["score"])
-
-    st.markdown("---")
 
     if st.button("Logout"):
         st.session_state.page = "login"
