@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
 import os
-import matplotlib.pyplot as plt
 
-# ---------------- FILE PATHS ---------------- #
+# ---------------- FILES ---------------- #
 USER_FILE = "users.csv"
 DATA_FILE = "data.csv"
 
-# ---------------- INITIAL SETUP ---------------- #
+# ---------------- INIT ---------------- #
 if not os.path.exists(USER_FILE):
     pd.DataFrame(columns=["username", "password"]).to_csv(USER_FILE, index=False)
 
@@ -22,7 +21,6 @@ if "user" not in st.session_state:
     st.session_state.user = ""
 
 # ---------------- FUNCTIONS ---------------- #
-
 def register_user(username, password):
     df = pd.read_csv(USER_FILE)
 
@@ -62,8 +60,8 @@ def save_data(username, sleep, study, screen, caffeine, exercise, score):
     df = pd.concat([df, new_data], ignore_index=True)
     df.to_csv(DATA_FILE, index=False)
 
-# ---------------- UI ---------------- #
 
+# ---------------- UI ---------------- #
 st.set_page_config(page_title="Stress Analyzer", layout="centered")
 
 st.markdown("""
@@ -135,9 +133,9 @@ elif st.session_state.page == "dashboard":
 
     st.markdown("""
     <div style="display:flex; gap:15px;">
-        <div class="card"><h3>📊 Track Habits</h3><p>Monitor daily lifestyle</p></div>
+        <div class="card"><h3>📊 Track Habits</h3><p>Monitor lifestyle</p></div>
         <div class="card"><h3>🧠 AI Analysis</h3><p>Predict stress</p></div>
-        <div class="card"><h3>💡 Tips</h3><p>Improve mental health</p></div>
+        <div class="card"><h3>💡 Tips</h3><p>Improve health</p></div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -156,9 +154,42 @@ elif st.session_state.page == "dashboard":
         score = ((10 - sleep) * 6) + (study * 4) + (screen * 4) + (caffeine * 5) + ((1 - exercise) * 10)
         score = max(0, min(score, 100))
 
-        st.success(f"Your Stress Score: {score}")
+        # Stress Level
+        if score < 30:
+            level = "Low 😊"
+        elif score < 70:
+            level = "Moderate 😐"
+        else:
+            level = "High 🚨"
 
+        st.success(f"Your Stress Score: {score}")
+        st.subheader(f"Stress Level: {level}")
+
+        st.progress(score / 100)
+
+        # Save
         save_data(st.session_state.user, sleep, study, screen, caffeine, exercise, score)
+
+        # Recommendations
+        st.subheader("💡 Recommendations")
+
+        if sleep < 6:
+            st.write("• 😴 Increase sleep to 7–8 hours")
+
+        if screen > 7:
+            st.write("• 📱 Reduce screen time")
+
+        if exercise == 0:
+            st.write("• 🏃 Start daily exercise")
+
+        if caffeine > 3:
+            st.write("• ☕ Reduce caffeine")
+
+        if study > 8:
+            st.write("• 📚 Take breaks while studying")
+
+        if score < 30:
+            st.write("• 🎉 You are doing great!")
 
     st.markdown("---")
 
